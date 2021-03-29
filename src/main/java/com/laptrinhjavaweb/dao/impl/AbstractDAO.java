@@ -8,11 +8,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.laptrinhjavaweb.dao.IPostDAO;
-import com.laptrinhjavaweb.models.Posts;
+import com.laptrinhjavaweb.dao.GenericDAO;
+import com.laptrinhjavaweb.mapper.RowMapper;
 
-public class PostDAO extends AbstractDAO implements IPostDAO{
-
+public class AbstractDAO<T> implements GenericDAO<T> {
 	public Connection getConnection() {
 		String url = "jdbc:mysql://localhost:3306/jdbc_servlet", user_name = "root", password = "mysqlpassword";
 		try {
@@ -27,34 +26,43 @@ public class PostDAO extends AbstractDAO implements IPostDAO{
 		}
 		return null;
 	}
+
 	@Override
-	public List<Posts> findByCategoryId(Long categoryId) {
-		List<Posts> cts = new ArrayList<>();
-		Connection conn = getConnection();
-		String sql = "SELECT * FROM posts WHERE categoryId = ?";
-		if (conn != null) {
+	public <T> List<T> query(String sql, RowMapper<T> rowMapper, Object... parameters) {
+		List<T> res = new ArrayList<>();
+
+		Connection conn = null;
+		PreparedStatement prstament = null;
+		ResultSet rs = null;
+		try {
+			conn = getConnection();
+			prstament = conn.prepareStatement(sql);
+
+			rs = prstament.executeQuery();
+
+			while (rs.next()) {
+				res.add(rowMapper.mapRow(rs));
+			}
+			return res;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		} finally {
 			try {
-				PreparedStatement pr;
-				pr = conn.prepareStatement(sql);
-				pr.setLong(1, categoryId);
-				ResultSet res = pr.executeQuery();
-				while (res.next()) {
-					Posts c = new Posts();
-					c.setId(res.getLong("id"));
-					c.setTitle(res.getString("title"));
-					cts.add(c);
+				if (conn != null) {
+					conn.close();
 				}
-				conn.close();
-				pr.close();
-				res.close();
-				return cts;
+				if (prstament != null) {
+					prstament.close();
+				}
+				if (rs != null) {
+					rs.close();
+				}
 			} catch (SQLException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 				return null;
 			}
 		}
-		return null;
 	}
-
 }
